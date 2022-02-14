@@ -12,17 +12,17 @@ namespace AareonTechnicalTest.Controllers
     [Route("[controller]")]
     public class TicketController : ControllerBase
     {
-        private readonly ApplicationContext _context;
+        private readonly ApplicationContext dbContext;
 
         public TicketController(ApplicationContext context)
         {
-            _context = context;
+            dbContext = context;
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<TicketDto>> GetTicket(int id)
         {
-            Ticket ticket = await _context.Tickets.FindAsync(id);
+            Ticket ticket = await dbContext.Tickets.FindAsync(id);
 
             if (ticket == null)
             {
@@ -35,7 +35,7 @@ namespace AareonTechnicalTest.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TicketDto>>> GetAllTickets()
         {
-            return await _context.Tickets
+            return await dbContext.Tickets
                 .Select(t => TicketToDto(t))
                 .ToListAsync();
         }
@@ -49,24 +49,60 @@ namespace AareonTechnicalTest.Controllers
                 Content = ticketDto.Content
             };
 
-            await _context.AddAsync(ticket);
-            await _context.SaveChangesAsync();
+            await dbContext.AddAsync(ticket);
+            await dbContext.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetTicket), new { id = ticket.Id }, TicketToDto(ticket));
         }
 
-        //[HttpPut(Name = "UpdateTicket")]
-        //public TicketDto UpdateTicket(TicketDto ticketDto)
-        //{
-        //    return null;
-        //}
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateTicket(int id, TicketDto ticketDto)
+        {
+            if (id != ticketDto.Id)
+            {
+                return BadRequest();
+            }
 
-        //[HttpDelete(Name = "DeleteTicket")]
-        //public bool DeleteTicket(TicketDto ticketDto)
-        //{
-        //    return false;
-        //}
+            Ticket ticket = await dbContext.Tickets.FindAsync(id);
+            if (ticket == null)
+            {
+                return NotFound();
+            }
 
+            ticket.Content = ticketDto.Content;
+            ticket.PersonId = ticketDto.PersonId;
+
+            try
+            {
+                await dbContext.SaveChangesAsync();
+            } catch (DbUpdateConcurrencyException ) when (!TicketExists(id))
+            {
+                return NotFound();
+            }
+
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteTicket(int id)
+        {
+            Ticket ticket = await dbContext.Tickets.FindAsync(id);
+
+            if (ticket == null)
+            {
+                return NotFound();
+            }
+
+            dbContext.Tickets.Remove(ticket);
+            await dbContext.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        private bool TicketExists(int id)
+        {
+            return dbContext.Tickets.Any(t => t.Id == id);
+        }
         private static TicketDto TicketToDto(Ticket ticket)
         {
             return new TicketDto
