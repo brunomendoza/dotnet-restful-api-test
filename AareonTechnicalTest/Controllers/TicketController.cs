@@ -1,50 +1,80 @@
 ﻿using AareonTechnicalTest.DTO;
+using AareonTechnicalTest.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace AareonTechnicalTest.Controllers
 {
     [ApiController]
-    [Route("[controler]")]
+    [Route("[controller]")]
     public class TicketController : ControllerBase
     {
-        [HttpGet(Name = "Ticket")]
-        public TicketDto GetTicket(int id)
+        private readonly ApplicationContext _context;
+
+        public TicketController(ApplicationContext context)
         {
-            return null;
+            _context = context;
         }
 
-        [HttpGet(Name = "Tickets")]
-        public IEnumerable<TicketDto> GetAllTickets()
+        [HttpGet("{id}")]
+        public async Task<ActionResult<TicketDto>> GetTicket(int id)
         {
-            ApplicationContext applicationContext = new ApplicationContext(new DbContextOptions<ApplicationContext>());
-            List<TicketDto> tickets = new System.Collections.Generic.List<TicketDto>();
+            Ticket ticket = await _context.Tickets.FindAsync(id);
 
-            foreach (Models.Ticket ticket in applicationContext.Tickets)
+            if (ticket == null)
             {
-                tickets.Add(new TicketDto());
+                return NotFound();
             }
 
-            return tickets;
+            return TicketToDto(ticket);
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<TicketDto>>> GetAllTickets()
+        {
+            return await _context.Tickets
+                .Select(t => TicketToDto(t))
+                .ToListAsync();
         }
 
         [HttpPost(Name = "SaveTicket")]
-        public int SaveTicket(TicketDto ticketDto)
+        public async Task<ActionResult<TicketDto>> SaveTicket(TicketDto ticketDto)
         {
-            return 0;
+            Ticket ticket = new()
+            {
+                PersonId = ticketDto.Id,
+                Content = ticketDto.Content
+            };
+
+            await _context.AddAsync(ticket);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetTicket), new { id = ticket.Id }, TicketToDto(ticket));
         }
 
-        [HttpPut(Name = "UpdateTicket")]
-        public TicketDto UpdateTicket(TicketDto ticketDto)
-        {
-            return null;
-        }
+        //[HttpPut(Name = "UpdateTicket")]
+        //public TicketDto UpdateTicket(TicketDto ticketDto)
+        //{
+        //    return null;
+        //}
 
-        [HttpDelete(Name = "DeleteTicket")]
-        public bool DeleteTicket(TicketDto ticketDto)
+        //[HttpDelete(Name = "DeleteTicket")]
+        //public bool DeleteTicket(TicketDto ticketDto)
+        //{
+        //    return false;
+        //}
+
+        private static TicketDto TicketToDto(Ticket ticket)
         {
-            return false;
+            return new TicketDto
+            {
+                Id = ticket.Id,
+                Content = ticket.Content,
+                PersonId = ticket.PersonId
+            };
         }
     }
 }
